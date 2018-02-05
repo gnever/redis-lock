@@ -1,0 +1,13 @@
+{
+    "name": "gnever/redis-lock",
+    "description": "redis 并发锁，适用于高并发业务下。解决并发重复执行的问题",
+    "type": "library",
+    "license": "MIT",
+    "minimum-stability": "beta",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "tool\\": "src/tool"
+        }
+    }
+}
