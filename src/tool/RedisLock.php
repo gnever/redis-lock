@@ -17,6 +17,7 @@ class RedisLock {
     protected $timeout = null;
     protected $retry_num = null;
     protected $retry_delay = null;
+    protected $uuid = null;
 
     /**
      * __construct 
@@ -37,6 +38,7 @@ class RedisLock {
         $this->timeout = $timeout + 2;
         $this->retry_delay = $retry_delay;
         $this->retry_num = $retry_num;
+        $this->uuid = uniqid(getmypid());
     }
 
     /**
@@ -73,9 +75,10 @@ class RedisLock {
      */
     public function unLock() {
         $obj = CommonRedis::init(); 
-        $lock_time = $obj->get($this->key);
+        $lock_value = $obj->get($this->key);
+        list($uuid, $lock_time) = explode('|', $lock_value);
         //如果锁已经超时，则不能再删除key了
-        if(time() - $lock_time < $this->timeout) {
+        if($uuid == $this->uuid && $lock_time && time() - $lock_time < $this->timeout) {
             return $obj->del($this->key);
         }
         return false;
@@ -83,21 +86,28 @@ class RedisLock {
 
     private function doLock() {
         $obj = CommonRedis::init(); 
-        $rs = $obj->set($this->key, time(), array('nx', 'ex'=>$this->timeout));
+        $rs = $obj->set($this->key, $this->rvalue(), array('nx', 'ex'=>$this->timeout));
         if($rs) {
             return true;
         }
 
-        $lock_time = $obj->get($this->key);
-        if(time() - $lock_time < $this->timeout) {
+        $lock_value = $obj->get($this->key);
+        list($uuid, $lock_time) = explode('|', $lock_value);
+
+        if($lock_value && time() - $lock_time < $this->timeout) {
             return false;
         }
 
-        $lock_time = $obj->getSet($this->key, time());
+        $lock_value = $obj->getSet($this->key, $this->rvalue());
+        list($uuid, $lock_time) = explode('|', $lock_value);
         if(time() - $lock_time < $this->timeout) {
             return false;
         }
         $obj->expire($this->key, $this->timeout);
         return true;
+    }
+
+    private function rvalue() {
+        return $this->uuid . '|' . time();
     }
 }
